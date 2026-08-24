@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ar" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>55 — Hip Hop Battle</title><link rel="stylesheet" href="/style.css"></head>
+<body>
+<header><div class="brand"><div class="logo">55</div><div><b>55</b><span>HIP HOP BATTLE</span></div></div><div id="me"></div></header>
+<main>
+<section class="hero"><h1>55</h1><p>HIP HOP • RAP • CULTURE</p><div id="phase">اللوبي مفتوح</div></section>
+<section class="score"><div class="team blue"><h2>🔵 BLUE</h2><strong id="blueScore">0</strong><small id="blueCount">0/6</small><button onclick="join('blue')">انضم للأزرق</button><button onclick="watch('blue')">شجع الأزرق</button><div id="bluePlayers"></div><div id="blueChat" class="chat"></div></div>
+<div class="center"><div id="timer">—</div><div id="question">في انتظار المباراة...</div><div id="options"></div><div id="queue"></div></div>
+<div class="team red"><h2>🔴 RED</h2><strong id="redScore">0</strong><small id="redCount">0/6</small><button onclick="join('red')">انضم للأحمر</button><button onclick="watch('red')">شجع الأحمر</button><div id="redPlayers"></div><div id="redChat" class="chat"></div></div></section>
+<section class="panel"><button onclick="leaveTeam()">الخروج من المجموعة</button><button onclick="queue()">⏳ انتظار الدور</button><div id="captainControls"></div></section>
+</main>
+<script src="/socket.io/socket.io.js"></script><script>
+const s=io();let me=null,state=null;
+const $=x=>document.getElementById(x);
+s.on("identity",x=>{me=x.id;$("me").textContent="PLAYER #"+me});
+s.on("state",x=>{state=x;render()});
+s.on("chat",x=>{const el=$(x.team+"Chat");el.innerHTML+=`<div><b>#${x.from}</b> ${escapeHtml(x.text)}</div>`;el.scrollTop=el.scrollHeight});
+function escapeHtml(x){return x.replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+function join(t){s.emit("joinTeam",t)}function leaveTeam(){s.emit("leaveTeam")}function queue(){s.emit("queue")}function watch(t){s.emit("spectate",t)}
+function render(){
+ $("phase").textContent=state.phase==="match"?"🔥 LIVE MATCH":"🟢 LOBBY";
+ $("blueScore").textContent=state.teams.blue.score;$("redScore").textContent=state.teams.red.score;
+ $("blueCount").textContent=state.teams.blue.players.length+"/6";$("redCount").textContent=state.teams.red.players.length+"/6";
+ $("bluePlayers").innerHTML=state.teams.blue.players.map(id=>`<span>#${id}${id===state.teams.blue.adminId?" 👑":""}${id===state.teams.blue.answerCaptainId?" 🎯":""}</span>`).join("");
+ $("redPlayers").innerHTML=state.teams.red.players.map(id=>`<span>#${id}${id===state.teams.red.adminId?" 👑":""}${id===state.teams.red.answerCaptainId?" 🎯":""}</span>`).join("");
+ $("queue").textContent=state.queue.find(x=>x.id===me)?`⏳ ترتيبك: ${state.queue.find(x=>x.id===me).position}`:"";
+ const q=state.question;
+ $("question").textContent=q?q.text:"في انتظار اكتمال الفريقين...";
+ $("options").innerHTML=q&&state.phase==="match"?Object.entries(q.options).map(([k,v])=>`<button onclick="answer('${k}')"><b>${k}</b>${v}</button>`).join(""):"";
+ if(state.deadline){clearInterval(window.t);window.t=setInterval(()=>{$("timer").textContent=Math.max(0,Math.ceil((state.deadline-Date.now())/1000))+"s"},100)}else $("timer").textContent="—";
+ const my=state.players.find(p=>p.id===me);const t=my?.team?state.teams[my.team]:null;
+ $("captainControls").innerHTML=my?.isCaptain&&state.phase==="lobby"&&t?.players.length?`<p>👑 أنت مسؤول المجموعة. عيّن Answer Captain:</p>${t.players.map(id=>`<button onclick="cap('${id}')">#${id}</button>`).join("")}`:"";
+}
+function answer(k){s.emit("submitAnswer",k)}function cap(id){s.emit("chooseCaptain",id)}
+</script></body></html>
